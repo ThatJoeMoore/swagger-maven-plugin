@@ -33,6 +33,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -82,6 +83,9 @@ public class JaxrsReader extends AbstractReader implements ClassSwaggerReader {
 
         Map<String, Tag> tags = updateTagsForApi(parentTags, api);
         List<SecurityRequirement> securities = getSecurityRequirements(api);
+
+        List<Parameter> instanceParameters = getInstanceParameters(cls);
+        parentParameters.addAll(instanceParameters);
 
         // merge consumes, pro duces
 
@@ -381,7 +385,7 @@ public class JaxrsReader extends AbstractReader implements ClassSwaggerReader {
 
 	private Annotation[][] findParamAnnotations(Method method) {
 		Annotation[][] paramAnnotation = method.getParameterAnnotations();
-		
+
 		method = ReflectionUtils.getOverriddenMethod(method);
 		while(method != null) {
 			paramAnnotation = merge(paramAnnotation, method.getParameterAnnotations());
@@ -394,7 +398,7 @@ public class JaxrsReader extends AbstractReader implements ClassSwaggerReader {
     private Annotation[][] merge(Annotation[][] paramAnnotation,
 			Annotation[][] superMethodParamAnnotations) {
     	Annotation[][] mergedAnnotations = new Annotation[paramAnnotation.length][];
-    	
+
     	for(int i=0; i<paramAnnotation.length; i++) {
     		mergedAnnotations[i] = merge(paramAnnotation[i], superMethodParamAnnotations[i]);
     	}
@@ -446,5 +450,19 @@ public class JaxrsReader extends AbstractReader implements ClassSwaggerReader {
         return null;
     }
 
+    private List<Parameter> getInstanceParameters(Class<?> cls) {
+        List<Parameter> parameters = new ArrayList<Parameter>();
+
+        Class<?> analyzing = cls;
+        do {
+            for (Field field : analyzing.getDeclaredFields()) {
+                parameters.addAll(getParameters(field.getType(), Arrays.asList(field.getAnnotations())));
+            }
+
+            analyzing = analyzing.getSuperclass();
+        } while (analyzing != null);
+
+        return parameters;
+    }
 
 }
